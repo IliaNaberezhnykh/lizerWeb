@@ -60,11 +60,11 @@ export function geometryFromPart(part: OutlinePart) {
   return geometry;
 }
 
-export function partMaterial(index: number, selected: boolean) {
+export function partMaterial(index: number, _selected = false) {
   return new MeshStandardMaterial({
-    color: new Color(selected ? "#6f7a48" : palette[index % palette.length]),
-    metalness: selected ? 0.42 : 0.62,
-    roughness: selected ? 0.32 : 0.28,
+    color: new Color(palette[index % palette.length]),
+    metalness: 0.62,
+    roughness: 0.28,
     side: DoubleSide,
     envMapIntensity: 1,
   });
