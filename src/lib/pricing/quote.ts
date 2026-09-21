@@ -1,0 +1,138 @@
+import { STOCK_SHEET } from "@/lib/cad/nesting";
+import { findMaterial } from "@/lib/onec/catalog";
+import type {
+  CompositionLine,
+  NestingSheet,
+  ParametricParams,
+  PartGroup,
+  Quote,
+  QuoteLine,
+} from "@/types/domain";
+
+let quoteSeq = 1001;
+
+export function buildComposition(input: {
+  groups: PartGroup[];
+  params: ParametricParams;
+}): CompositionLine[] {
+  const material = findMaterial(input.params.material, input.params.thicknessMm);
+  return input.groups.map((group) => ({
+    key: group.key,
+    name: group.name,
+    materialCode: material.code,
+    materialName: material.name,
+    quantity: Number(
+      ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
+    ),
+    partQuantity: group.quantity,
+    thicknessMm: group.sample.thicknessMm,
+  }));
+}
+
+export function nestStats(input: {
+  groups: PartGroup[];
+  nesting: NestingSheet[];
+}) {
+  const sheetAreaM2 = (STOCK_SHEET.width * STOCK_SHEET.height) / 1_000_000;
+  const usedAreaM2 = input.groups.reduce(
+    (sum, group) => sum + (group.sample.areaMm2 * group.quantity) / 1_000_000,
+    0,
+  );
+  const sheetCount = Math.max(1, input.nesting.length);
+  const wastePercent =
+    sheetCount * sheetAreaM2 === 0
+      ? 0
+      : Math.max(0, 1 - usedAreaM2 / (sheetCount * sheetAreaM2)) * 100;
+  return {
+    sheetCount,
+    wastePercent: Number(wastePercent.toFixed(1)),
+  };
+}
+
+export function buildQuote(input: {
+  groups: PartGroup[];
+  nesting: NestingSheet[];
+  params: ParametricParams;
+}): Quote {
+  const composition = buildComposition(input);
+  const stats = nestStats(input);
+  const material = findMaterial(input.params.material, input.params.thicknessMm);
+
+  const lines: QuoteLine[] = composition.map((part) => ({
+    nomenclatureCode: part.materialCode,
+    nomenclatureName: part.materialName,
+    unit: material.unit,
+    quantity: part.quantity,
+    price: material.price,
+    amount: Math.round(material.price * part.quantity),
+    kind: "material",
+    oneCKind: "nomenclature",
+  }));
+
+  const materialAmount = lines.reduce((sum, item) => sum + item.amount, 0);
+  const valid = new Date();
+  valid.setDate(valid.getDate() + 3);
+  quoteSeq += 1;
+
+  return {
+    id: `Q-${quoteSeq}`,
+    lines,
+    materialAmount,
+    workAmount: 0,
+    total: materialAmount,
+    currency: "RUB",
+    validUntil: valid.toISOString(),
+    wastePercent: stats.wastePercent,
+    sheetCount: stats.sheetCount,
+  };
+}
+
+export function quoteFromOneC(
+  data: {
+    quoteId?: string;
+    lines?: Array<{
+      nomenclatureCode?: string;
+      nomenclatureName?: string;
+      unit?: string;
+      quantity?: number;
+      price?: number;
+      amount?: number;
+      kind?: QuoteLine["kind"];
+    }>;
+    materialAmount?: number;
+    workAmount?: number;
+    total?: number;
+    validUntil?: string;
+  },
+  stats: { wastePercent: number; sheetCount: number },
+): Quote {
+  const lines: QuoteLine[] = (data.lines ?? []).map((item) => ({
+    nomenclatureCode: item.nomenclatureCode ?? "",
+    nomenclatureName: item.nomenclatureName ?? "",
+    unit: item.unit ?? "шт",
+    quantity: Number(item.quantity ?? 0),
+    price: Number(item.price ?? 0),
+    amount: Number(item.amount ?? 0),
+    kind: item.kind ?? "material",
+    oneCKind: "nomenclature",
+  }));
+  const materialAmount =
+    data.materialAmount ??
+    lines
+      .filter((item) => item.kind === "material")
+      .reduce((sum, item) => sum + item.amount, 0);
+  const workAmount = data.workAmount ?? 0;
+  const valid = data.validUntil ?? new Date(Date.now() + 3 * 86400000).toISOString();
+
+  return {
+    id: data.quoteId ?? `Q-${Date.now()}`,
+    lines,
+    materialAmount,
+    workAmount,
+    total: data.total ?? materialAmount + workAmount,
+    currency: "RUB",
+    validUntil: valid,
+    wastePercent: stats.wastePercent,
+    sheetCount: stats.sheetCount,
+  };
+}
