@@ -23,6 +23,8 @@ export interface CompositionLine {
   materialName: string;
   quantity: number;
   partQuantity: number;
+  lengthMm: number;
+  heightMm: number;
   thicknessMm: number;
   price?: number;
   amount?: number;

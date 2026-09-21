@@ -31,6 +31,12 @@ export function buildComposition(input: {
       ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
     ),
     partQuantity: group.quantity,
+    lengthMm: Number(
+      (group.sample.bbox.w || input.params.widthMm).toFixed(1),
+    ),
+    heightMm: Number(
+      (group.sample.bbox.h || input.params.heightMm).toFixed(1),
+    ),
     thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,
   }));
 }
