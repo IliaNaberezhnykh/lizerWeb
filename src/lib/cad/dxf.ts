@@ -1,8 +1,10 @@
-import type { OutlinePart } from "@/types/domain";
+import type { OutlinePart, Polyline2D } from "@/types/domain";
 import {
   circlePolyline,
   groupParts,
   makePart,
+  pointInPolygon,
+  shoelaceArea,
   translate,
 } from "@/lib/cad/geometry";
 
@@ -189,31 +191,110 @@ function splineToPolyline(entity: DxfEntity) {
   return { points, closed: true as const };
 }
 
+function contourCentroid(points: [number, number][]): [number, number] {
+  let x = 0;
+  let y = 0;
+  for (const [px, py] of points) {
+    x += px;
+    y += py;
+  }
+  const n = Math.max(points.length, 1);
+  return [x / n, y / n];
+}
+
+/**
+ * Nest closed contours for laser-cut plates:
+ * depth 0 = outline, depth 1 = hole, depth 2 = island outline, etc.
+ * Without nesting every loop is extruded as a solid slab and overlaps look like clutter.
+ */
+function nestContoursToParts(
+  contours: Polyline2D[],
+  thicknessMm: number,
+): OutlinePart[] {
+  if (!contours.length) return [];
+
+  const items = contours
+    .map((contour, index) => ({
+      index,
+      contour,
+      area: shoelaceArea(contour.points),
+      centroid: contourCentroid(contour.points),
+    }))
+    .filter((item) => item.area > 1e-6)
+    .sort((a, b) => b.area - a.area);
+
+  const parentOf = new Array<number>(items.length).fill(-1);
+
+  for (let i = 0; i < items.length; i += 1) {
+    const [cx, cy] = items[i].centroid;
+    let parent = -1;
+    let parentArea = Infinity;
+    for (let j = 0; j < items.length; j += 1) {
+      if (i === j || items[j].area <= items[i].area) continue;
+      if (!pointInPolygon(cx, cy, items[j].contour.points)) continue;
+      if (items[j].area < parentArea) {
+        parentArea = items[j].area;
+        parent = j;
+      }
+    }
+    parentOf[i] = parent;
+  }
+
+  const depthOf = (index: number): number => {
+    let depth = 0;
+    let current = parentOf[index];
+    const guard = new Set<number>();
+    while (current >= 0 && !guard.has(current)) {
+      guard.add(current);
+      depth += 1;
+      current = parentOf[current];
+    }
+    return depth;
+  };
+
+  const children = items.map(() => [] as number[]);
+  for (let i = 0; i < items.length; i += 1) {
+    const parent = parentOf[i];
+    if (parent >= 0) children[parent].push(i);
+  }
+
+  const parts: OutlinePart[] = [];
+  let partIndex = 0;
+  for (let i = 0; i < items.length; i += 1) {
+    if (depthOf(i) % 2 !== 0) continue; // odd depth = hole of something else
+    partIndex += 1;
+    const holes = children[i]
+      .filter((child) => depthOf(child) === depthOf(i) + 1)
+      .map((child) => items[child].contour);
+    parts.push(
+      makePart(
+        `dxf-part-${partIndex}`,
+        parts.length === 0 && holes.length > 0 ? "Изделие" : `Деталь ${partIndex}`,
+        items[i].contour,
+        holes,
+        thicknessMm,
+      ),
+    );
+  }
+
+  return parts;
+}
+
 export async function loadDxfParts(file: File, thicknessMm: number): Promise<OutlinePart[]> {
   const text = await file.text();
   const { default: DxfParser } = await import("dxf-parser");
   const parser = new DxfParser();
   const dxf = parser.parseSync(text) as DxfDocument;
   const scale = unitScaleFromHeader(dxf.header, text);
-  const parts: OutlinePart[] = [];
-  let index = 0;
+  const contours: Polyline2D[] = [];
 
   for (const entity of dxf.entities ?? []) {
     if (entity.type === "CIRCLE" && entity.center && entity.radius) {
-      index += 1;
-      parts.push(
-        makePart(
-          `dxf-circle-${index}`,
-          `Контур ${index}`,
-          {
-            ...circlePolyline(
-              entity.center.x * scale,
-              entity.center.y * scale,
-              entity.radius * scale,
-            ),
-          },
-          [],
-          thicknessMm,
+      contours.push(
+        circlePolyline(
+          entity.center.x * scale,
+          entity.center.y * scale,
+          entity.radius * scale,
         ),
       );
       continue;
@@ -222,50 +303,39 @@ export async function loadDxfParts(file: File, thicknessMm: number): Promise<Out
     if (entity.type === "LWPOLYLINE" || entity.type === "POLYLINE") {
       const outline = closedPolyline(entity);
       if (!outline) continue;
-      index += 1;
-      parts.push(
-        makePart(
-          `dxf-poly-${index}`,
-          `Контур ${index}`,
-          {
-            closed: true,
-            points: outline.points.map((p) => scalePoint(p, scale)),
-          },
-          [],
-          thicknessMm,
-        ),
-      );
+      contours.push({
+        closed: true,
+        points: outline.points.map((p) => scalePoint(p, scale)),
+      });
       continue;
     }
 
     if (entity.type === "SPLINE") {
       const outline = splineToPolyline(entity);
       if (!outline) continue;
-      index += 1;
-      parts.push(
-        makePart(
-          `dxf-spline-${index}`,
-          `Контур ${index}`,
-          {
-            closed: true,
-            points: outline.points.map((p) => scalePoint(p, scale)),
-          },
-          [],
-          thicknessMm,
-        ),
-      );
+      contours.push({
+        closed: true,
+        points: outline.points.map((p) => scalePoint(p, scale)),
+      });
     }
   }
 
+  const parts = nestContoursToParts(contours, thicknessMm);
   if (parts.length === 0) {
     throw new Error("В DXF не найдены замкнутые контуры для резки.");
   }
 
   const minX = Math.min(
-    ...parts.flatMap((part) => part.outline.points.map((p) => p[0])),
+    ...parts.flatMap((part) => [
+      ...part.outline.points.map((p) => p[0]),
+      ...part.holes.flatMap((hole) => hole.points.map((p) => p[0])),
+    ]),
   );
   const minY = Math.min(
-    ...parts.flatMap((part) => part.outline.points.map((p) => p[1])),
+    ...parts.flatMap((part) => [
+      ...part.outline.points.map((p) => p[1]),
+      ...part.holes.flatMap((hole) => hole.points.map((p) => p[1])),
+    ]),
   );
 
   return parts.map((part) =>
