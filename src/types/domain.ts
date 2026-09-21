@@ -147,6 +147,8 @@ export interface ProjectSnapshot {
   nesting: NestingSheet[];
   selectedGroupKey?: string;
   explode: number;
+  /** For DXF/STL/STEP material+thickness must be set by the user before quote. */
+  specsConfirmed: boolean;
   quote?: Quote;
   checkout: CheckoutInfo;
   documents?: OneCDocuments;

@@ -1,5 +1,6 @@
 "use client";
 
+import { FileMaterialForm } from "@/components/configurator/FileMaterialForm";
 import { projectFromDxf, loadDxfParts } from "@/lib/cad/dxf";
 import { detectFileKind, stepPlaceholder } from "@/lib/cad/kernel";
 import { groupParts } from "@/lib/cad/geometry";
@@ -19,7 +20,8 @@ export function Uploader() {
     setNote(null);
     try {
       const kind = detectFileKind(file.name);
-      const thickness = project.params.thicknessMm;
+      // Temporary thickness for mesh build; user must confirm material/thickness after upload.
+      const previewThickness = 2;
 
       if (kind === "stl") {
         const parts = await loadStlParts(file);
@@ -29,39 +31,42 @@ export function Uploader() {
           fileName: file.name,
           parts,
           groups: groupParts(parts),
+          specsConfirmed: false,
         });
         setNote(
-          `STL разобран на ${parts.length} тел. Одинаковые габариты схлопнуты в количество.`,
+          `STL разобран на ${parts.length} тел. Укажите материал и толщину ниже.`,
         );
         return;
       }
 
       if (kind === "dxf" || kind === "dtf") {
-        const parts = await loadDxfParts(file, thickness);
+        const parts = await loadDxfParts(file, previewThickness);
         const built = projectFromDxf(parts);
         setGeometry({
           source: kind,
           fileName: file.name,
           parts: built.parts,
           groups: built.groups,
+          specsConfirmed: false,
         });
         setNote(
           kind === "dtf"
-            ? "DTF принят как контурный чертёж (как DXF). Для печати DTF это другой пайплайн."
-            : `Найдено контуров: ${built.parts.length}.`,
+            ? "DTF принят как контурный чертёж. Укажите материал и толщину ниже."
+            : `Найдено контуров: ${built.parts.length}. Укажите материал и толщину ниже.`,
         );
         return;
       }
 
-      const parts = stepPlaceholder(file.name, thickness);
+      const parts = stepPlaceholder(file.name, previewThickness);
       setGeometry({
         source: "step",
         fileName: file.name,
         parts,
         groups: groupParts(parts),
+        specsConfirmed: false,
       });
       setNote(
-        "STEP подключится через OpenCascade.js / replicad. Сейчас показана габаритная заготовка.",
+        "STEP подключится через OpenCascade.js / replicad. Укажите материал и толщину ниже.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось прочитать файл");
@@ -97,15 +102,20 @@ export function Uploader() {
         type="button"
         className="ghost"
         onClick={async () => {
-          const response = await fetch("/demo/ornament.dxf");
+          const response = await fetch("/demo/endless-knot.dxf");
           const blob = await response.blob();
-          await ingest(new File([blob], "ornament.dxf", { type: "image/vnd.dxf" }));
+          await ingest(
+            new File([blob], "endless-knot.dxf", { type: "image/vnd.dxf" }),
+          );
         }}
       >
         Загрузить демо-DXF
       </button>
       {note ? <p className="note">{note}</p> : null}
       {error ? <p className="error">{error}</p> : null}
+      {project.source !== "parametric" && project.parts.length > 0 ? (
+        <FileMaterialForm />
+      ) : null}
     </div>
   );
 }

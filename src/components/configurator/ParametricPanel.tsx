@@ -1,6 +1,7 @@
 "use client";
 
 import { buildParametricProject, defaultParams, shapeLabels } from "@/lib/cad/parametric";
+import { MATERIALS } from "@/lib/materials";
 import { setGeometry, useProject } from "@/lib/project-store";
 import type { BlankShape, MaterialGrade, PatternKind } from "@/types/domain";
 
@@ -34,13 +35,6 @@ const shapes: { id: BlankShape; hint: string }[] = [
   { id: "oval", hint: "Эллипс" },
   { id: "hexagon", hint: "Шестигранник" },
   { id: "diamond", hint: "Ромб" },
-];
-
-const materials: { id: MaterialGrade; label: string }[] = [
-  { id: "09G2S", label: "Сталь 09Г2С" },
-  { id: "AISI304", label: "Нерж. AISI 304" },
-  { id: "AISI430", label: "Нерж. AISI 430" },
-  { id: "ALMG3", label: "Алюминий АМг3" },
 ];
 
 export function ParametricPanel() {
@@ -100,7 +94,7 @@ export function ParametricPanel() {
           value={params.material}
           onChange={(e) => update("material", e.target.value as MaterialGrade)}
         >
-          {materials.map((item) => (
+          {MATERIALS.map((item) => (
             <option key={item.id} value={item.id}>
               {item.label}
             </option>

@@ -1,5 +1,6 @@
 "use client";
 
+import { groupParts, makePart } from "@/lib/cad/geometry";
 import { nestGroups } from "@/lib/cad/nesting";
 import { buildParametricProject, defaultParams } from "@/lib/cad/parametric";
 import type {
@@ -7,7 +8,6 @@ import type {
   OneCDocuments,
   OutlinePart,
   ParametricParams,
-  PartGroup,
   ProjectSnapshot,
   Quote,
 } from "@/types/domain";
@@ -32,6 +32,7 @@ let state: ProjectSnapshot = {
   groups: initialGeometry.groups,
   nesting: nestGroups(initialGeometry.groups),
   explode: 0.35,
+  specsConfirmed: true,
   checkout: emptyCheckout,
 };
 
@@ -54,8 +55,10 @@ export function setGeometry(input: {
   fileName?: string;
   params?: ParametricParams;
   parts: OutlinePart[];
-  groups: PartGroup[];
+  groups: PartGroupLike[];
+  specsConfirmed?: boolean;
 }) {
+  const fromFile = input.source !== "parametric";
   setProject({
     source: input.source,
     fileName: input.fileName,
@@ -63,8 +66,35 @@ export function setGeometry(input: {
     parts: input.parts,
     groups: input.groups,
     selectedGroupKey: undefined,
+    specsConfirmed: input.specsConfirmed ?? !fromFile,
     quote: undefined,
     documents: undefined,
+  });
+}
+
+type PartGroupLike = ProjectSnapshot["groups"][number];
+
+export function applyFileMaterialSpecs(input: {
+  material: ParametricParams["material"];
+  thicknessMm: number;
+}) {
+  const thicknessMm = Number(input.thicknessMm);
+  if (!Number.isFinite(thicknessMm) || thicknessMm <= 0) {
+    throw new Error("Укажите толщину больше 0");
+  }
+  const parts = state.parts.map((part) =>
+    makePart(part.id, part.name, part.outline, part.holes, thicknessMm, part.mesh),
+  );
+  setProject({
+    params: {
+      ...state.params,
+      material: input.material,
+      thicknessMm,
+    },
+    parts,
+    groups: groupParts(parts),
+    specsConfirmed: true,
+    quote: undefined,
   });
 }
 
@@ -82,6 +112,10 @@ export function setDocuments(documents: OneCDocuments) {
 
 export function getProject() {
   return state;
+}
+
+export function needsMaterialSpecs(snapshot: ProjectSnapshot = state) {
+  return snapshot.source !== "parametric" && !snapshot.specsConfirmed;
 }
 
 export function useProject() {

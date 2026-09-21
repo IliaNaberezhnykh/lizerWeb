@@ -5,10 +5,10 @@ import { ParametricPanel } from "@/components/configurator/ParametricPanel";
 import { PartsTable } from "@/components/configurator/PartsTable";
 import { Uploader } from "@/components/configurator/Uploader";
 import { formatMoney } from "@/lib/format";
-import { setProject, setQuote, useProject } from "@/lib/project-store";
+import { needsMaterialSpecs, setProject, setQuote, useProject } from "@/lib/project-store";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const ViewerCanvas = dynamic(
   () => import("@/components/configurator/ViewerCanvas").then((m) => m.ViewerCanvas),
@@ -22,7 +22,16 @@ export function ConfiguratorStudio() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (project.source !== "parametric") setTab("file");
+  }, [project.source, project.fileName]);
+
   async function quote() {
+    if (needsMaterialSpecs(project)) {
+      setError("После загрузки файла укажите материал и толщину");
+      setTab("file");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -106,12 +115,19 @@ export function ConfiguratorStudio() {
 
         {error ? <p className="error">{error}</p> : null}
 
-        <button className="primary" type="button" onClick={() => void quote()} disabled={busy}>
+        <button
+          className="primary"
+          type="button"
+          onClick={() => void quote()}
+          disabled={busy || needsMaterialSpecs(project)}
+        >
           {busy
             ? "Считаем стоимость…"
-            : project.quote
-              ? `Подтвердить ${formatMoney(project.quote.total)}`
-              : "Получить цену"}
+            : needsMaterialSpecs(project)
+              ? "Сначала укажите материал"
+              : project.quote
+                ? `Подтвердить ${formatMoney(project.quote.total)}`
+                : "Получить цену"}
         </button>
         <p className="muted tiny">
           После расчёта откроется подтверждение цены, оформление и оплата.
