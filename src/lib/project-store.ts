@@ -62,6 +62,7 @@ export function setGeometry(input: {
     params: input.params ?? state.params,
     parts: input.parts,
     groups: input.groups,
+    selectedGroupKey: undefined,
     quote: undefined,
     documents: undefined,
   });
