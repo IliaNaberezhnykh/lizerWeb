@@ -1,4 +1,5 @@
 import { STOCK_SHEET } from "@/lib/cad/nesting";
+import { MATERIALS } from "@/lib/materials";
 import { findMaterial } from "@/lib/onec/catalog";
 import type {
   CompositionLine,
@@ -16,16 +17,21 @@ export function buildComposition(input: {
   params: ParametricParams;
 }): CompositionLine[] {
   const material = findMaterial(input.params.material, input.params.thicknessMm);
+  const materialLabel =
+    MATERIALS.find((item) => item.id === input.params.material)?.label ??
+    input.params.material;
   return input.groups.map((group) => ({
     key: group.key,
     name: group.name,
+    material: input.params.material,
+    materialLabel,
     materialCode: material.code,
     materialName: material.name,
     quantity: Number(
       ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
     ),
     partQuantity: group.quantity,
-    thicknessMm: group.sample.thicknessMm,
+    thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,
   }));
 }
 
@@ -59,6 +65,7 @@ export function buildQuote(input: {
   const material = findMaterial(input.params.material, input.params.thicknessMm);
 
   const lines: QuoteLine[] = composition.map((part) => ({
+    key: part.key,
     nomenclatureCode: part.materialCode,
     nomenclatureName: part.materialName,
     unit: material.unit,
@@ -91,6 +98,7 @@ export function quoteFromOneC(
   data: {
     quoteId?: string;
     lines?: Array<{
+      key?: string;
       nomenclatureCode?: string;
       nomenclatureName?: string;
       unit?: string;
@@ -107,6 +115,7 @@ export function quoteFromOneC(
   stats: { wastePercent: number; sheetCount: number },
 ): Quote {
   const lines: QuoteLine[] = (data.lines ?? []).map((item) => ({
+    key: item.key,
     nomenclatureCode: item.nomenclatureCode ?? "",
     nomenclatureName: item.nomenclatureName ?? "",
     unit: item.unit ?? "шт",

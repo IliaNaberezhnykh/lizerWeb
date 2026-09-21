@@ -17,6 +17,8 @@ export type DeliveryType = "pickup" | "tk" | "courier";
 export interface CompositionLine {
   key: string;
   name: string;
+  material: string;
+  materialLabel: string;
   materialCode: string;
   materialName: string;
   quantity: number;
@@ -84,6 +86,7 @@ export interface NestingSheet {
 }
 
 export interface QuoteLine {
+  key?: string;
   nomenclatureCode: string;
   nomenclatureName: string;
   unit: string;

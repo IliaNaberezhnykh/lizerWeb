@@ -175,7 +175,9 @@ export const oneCClient = {
       params: input.params,
     }).map((part) => {
       const line = input.quote.lines.find(
-        (item) => item.nomenclatureCode === part.materialCode,
+        (item) =>
+          (item.key != null && item.key === part.key) ||
+          item.nomenclatureCode === part.materialCode,
       );
       return {
         ...part,
