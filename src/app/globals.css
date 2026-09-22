@@ -63,9 +63,22 @@ a {
 
 .topbar nav {
   display: flex;
-  gap: 18px;
+  gap: 20px;
   color: var(--steel);
   flex: 1;
+}
+
+.topbar nav a {
+  font-family: var(--font-nav), var(--font-sans), sans-serif;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  color: var(--steel);
+  transition: color 0.15s ease;
+}
+
+.topbar nav a:hover {
+  color: var(--accent-2);
 }
 
 .pill {

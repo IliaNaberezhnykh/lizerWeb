@@ -15,11 +15,17 @@ let quoteSeq = 1001;
 export function buildComposition(input: {
   groups: PartGroup[];
   params: ParametricParams;
+  nesting?: NestingSheet[];
 }): CompositionLine[] {
   const material = findMaterial(input.params.material, input.params.thicknessMm);
   const materialLabel =
     MATERIALS.find((item) => item.id === input.params.material)?.label ??
     input.params.material;
+  // В 1С длина/ширина — габариты листа раскроя (характеристика 1500×6000), не детали.
+  const sheet = input.nesting?.[0] ?? {
+    width: STOCK_SHEET.width,
+    height: STOCK_SHEET.height,
+  };
   return input.groups.map((group) => ({
     key: group.key,
     name: group.name,
@@ -31,10 +37,12 @@ export function buildComposition(input: {
       ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
     ),
     partQuantity: group.quantity,
-    lengthMm: Number(
+    lengthMm: Number(sheet.width.toFixed(1)),
+    heightMm: Number(sheet.height.toFixed(1)),
+    partLengthMm: Number(
       (group.sample.bbox.w || input.params.widthMm).toFixed(1),
     ),
-    heightMm: Number(
+    partHeightMm: Number(
       (group.sample.bbox.h || input.params.heightMm).toFixed(1),
     ),
     thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,

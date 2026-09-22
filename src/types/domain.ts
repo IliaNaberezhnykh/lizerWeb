@@ -25,6 +25,8 @@ export interface CompositionLine {
   partQuantity: number;
   lengthMm: number;
   heightMm: number;
+  partLengthMm?: number;
+  partHeightMm?: number;
   thicknessMm: number;
   price?: number;
   amount?: number;

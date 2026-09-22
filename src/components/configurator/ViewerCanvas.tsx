@@ -274,10 +274,12 @@ export function ViewerCanvas() {
       <Grid
         infiniteGrid
         fadeDistance={2400}
-        sectionColor="#4a5340"
-        cellColor="#2c3326"
+        sectionColor="#f2f4f0"
+        cellColor="#d8ddd2"
         cellSize={50}
         sectionSize={250}
+        sectionThickness={1.4}
+        cellThickness={1}
         position={[0, -2, 0]}
       />
       <OrbitControls

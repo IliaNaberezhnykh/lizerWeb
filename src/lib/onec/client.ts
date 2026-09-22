@@ -155,7 +155,11 @@ export const oneCClient = {
     if (!baseUrl()) {
       return buildQuote(input);
     }
-    const parts = buildComposition(input);
+    const parts = buildComposition({
+      groups: input.groups,
+      params: input.params,
+      nesting: input.nesting,
+    });
     const data = await oneCFetch("/quote", {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -173,6 +177,7 @@ export const oneCClient = {
     const parts = buildComposition({
       groups: input.groups,
       params: input.params,
+      nesting: input.nesting,
     }).map((part) => {
       const line = input.quote.lines.find(
         (item) =>

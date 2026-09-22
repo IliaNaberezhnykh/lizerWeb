@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Manrope, IBM_Plex_Mono } from "next/font/google";
+import { Manrope, Nunito, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
 const sans = Manrope({
   variable: "--font-sans",
   subsets: ["latin", "cyrillic"],
+});
+
+const nav = Nunito({
+  variable: "--font-nav",
+  subsets: ["latin", "cyrillic"],
+  weight: ["600", "700", "800"],
 });
 
 const mono = IBM_Plex_Mono({
@@ -28,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${sans.variable} ${mono.variable}`}
+      className={`${sans.variable} ${nav.variable} ${mono.variable}`}
     >
       <body>{children}</body>
     </html>

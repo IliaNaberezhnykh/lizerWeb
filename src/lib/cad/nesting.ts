@@ -1,6 +1,6 @@
 import type { NestingSheet, OutlinePart, PartGroup } from "@/types/domain";
 
-export const STOCK_SHEET = { width: 2500, height: 1250, gap: 8 };
+export const STOCK_SHEET = { width: 1500, height: 6000, gap: 8 };
 
 export function nestGroups(groups: PartGroup[]): NestingSheet[] {
   const items = groups.flatMap((group) =>
