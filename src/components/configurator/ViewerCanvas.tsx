@@ -92,12 +92,21 @@ function PartsScene({
     }
     const center = new Vector3();
     if (!box.isEmpty()) box.getCenter(center);
-    return center;
+    return { center, box };
   }, [geos]);
 
   // Stable scene centering (no drei <Center> reflow that shifts orbit mid-drag).
   const rootOffset = useMemo(() => {
-    return new Vector3(-cluster.x, -cluster.y, -cluster.z);
+    return new Vector3(-cluster.center.x, -cluster.center.y, -cluster.center.z);
+  }, [cluster]);
+
+  const floorSize = useMemo(() => {
+    if (cluster.box.isEmpty()) return { w: 200, h: 200 };
+    cluster.box.getSize(_size);
+    return {
+      w: Math.max(_size.x, 40) + 80,
+      h: Math.max(_size.z, 40) + 80,
+    };
   }, [cluster]);
 
   // Frame camera only when selection key changes — never during orbit/damping.
@@ -164,12 +173,21 @@ function PartsScene({
 
   return (
     <group ref={rootRef} position={rootOffset}>
+      {/* Непрозрачная подложка: через отверстия и металл сетка не просвечивает. */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[cluster.center.x, -0.02, cluster.center.z]}
+        renderOrder={-1}
+      >
+        <planeGeometry args={[floorSize.w, floorSize.h]} />
+        <meshBasicMaterial color="#1b2017" depthWrite />
+      </mesh>
       {geos.map((geo, index) => {
         const center = centers[index];
         const offset = center
           .clone()
-          .sub(cluster)
-          .multiplyScalar(project.explode * 1.4);
+      .sub(cluster.center)
+      .multiplyScalar(project.explode * 1.4);
         const part = project.parts[index];
         if (!part) return null;
         const groupKey = groupKeyFor(part);
@@ -183,6 +201,7 @@ function PartsScene({
             geometry={geo}
             material={materials[index]}
             position={offset}
+            renderOrder={1}
             castShadow
             receiveShadow
             onPointerDown={(event: ThreeEvent<PointerEvent>) => {
@@ -255,7 +274,7 @@ export function ViewerCanvas() {
     <Canvas
       shadows
       camera={{ position: [420, 340, 420], fov: 38, near: 0.1, far: 20000 }}
-      gl={{ antialias: true }}
+      gl={{ antialias: true, logarithmicDepthBuffer: true }}
       style={{ width: "100%", height: "100%" }}
     >
       <color attach="background" args={["#1b2017"]} />
@@ -280,7 +299,8 @@ export function ViewerCanvas() {
         sectionSize={250}
         sectionThickness={1.05}
         cellThickness={0.65}
-        position={[0, -0.08, 0]}
+        position={[0, -1.5, 0]}
+        renderOrder={-2}
       />
       <OrbitControls
         ref={controlsRef}

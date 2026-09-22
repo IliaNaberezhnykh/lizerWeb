@@ -69,9 +69,12 @@ export function partMaterial(index: number, _selected = false) {
     roughness: 0.35,
     side: FrontSide,
     flatShading: false,
+    transparent: false,
+    depthTest: true,
+    depthWrite: true,
     polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
     envMapIntensity: 0.85,
   });
 }
