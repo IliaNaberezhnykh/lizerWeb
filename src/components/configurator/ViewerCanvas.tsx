@@ -163,7 +163,7 @@ function PartsScene({
   }
 
   return (
-    <group ref={rootRef} position={[rootOffset.x, rootOffset.y + 1, rootOffset.z]}>
+    <group ref={rootRef} position={rootOffset}>
       {geos.map((geo, index) => {
         const center = centers[index];
         const offset = center
@@ -274,13 +274,13 @@ export function ViewerCanvas() {
       <Grid
         infiniteGrid
         fadeDistance={2400}
-        sectionColor="#f2f4f0"
-        cellColor="#d8ddd2"
+        sectionColor="#3a4036"
+        cellColor="#2a2f28"
         cellSize={50}
         sectionSize={250}
-        sectionThickness={1.4}
-        cellThickness={1}
-        position={[0, -24, 0]}
+        sectionThickness={1.1}
+        cellThickness={0.7}
+        position={[0, -0.05, 0]}
       />
       <OrbitControls
         ref={controlsRef}

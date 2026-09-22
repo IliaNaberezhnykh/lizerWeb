@@ -55,6 +55,8 @@ export function geometryFromPart(part: OutlinePart) {
     curveSegments: 8,
   });
   geometry.rotateX(-Math.PI / 2);
+  // Низ детали на y=0 — лежит на сетке, без «парения» и z-fighting.
+  geometry.translate(0, part.thicknessMm, 0);
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   return geometry;
