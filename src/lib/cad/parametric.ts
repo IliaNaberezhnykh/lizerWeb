@@ -10,6 +10,7 @@ import {
   roundedRectPolyline,
   rosetteHole,
 } from "@/lib/cad/geometry";
+import { clampParametricParams, safeMotifPitch } from "@/lib/cad/param-limits";
 import type {
   BlankShape,
   OutlinePart,
@@ -19,14 +20,15 @@ import type {
 } from "@/types/domain";
 
 function motifGrid(width: number, height: number, pitch: number, margin: number) {
-  const cols = Math.max(1, Math.floor((width - margin * 2) / pitch));
-  const rows = Math.max(1, Math.floor((height - margin * 2) / pitch));
-  const offsetX = (width - (cols - 1) * pitch) / 2;
-  const offsetY = (height - (rows - 1) * pitch) / 2;
+  const safePitch = safeMotifPitch(width, height, pitch, margin);
+  const cols = Math.max(1, Math.floor((width - margin * 2) / safePitch));
+  const rows = Math.max(1, Math.floor((height - margin * 2) / safePitch));
+  const offsetX = (width - (cols - 1) * safePitch) / 2;
+  const offsetY = (height - (rows - 1) * safePitch) / 2;
   const cells: [number, number][] = [];
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
-      cells.push([offsetX + c * pitch, offsetY + r * pitch]);
+      cells.push([offsetX + c * safePitch, offsetY + r * safePitch]);
     }
   }
   return { cols, rows, cells };
@@ -159,9 +161,11 @@ export const defaultParams: ParametricParams = {
 };
 
 export function buildParametricProject(params: ParametricParams) {
-  const parts = buildParametricParts(params);
+  const safe = clampParametricParams(params);
+  const parts = buildParametricParts(safe);
   return {
     parts,
     groups: groupParts(parts),
+    params: safe,
   };
 }

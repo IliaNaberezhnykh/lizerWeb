@@ -1,9 +1,17 @@
 "use client";
 
 import { buildParametricProject, defaultParams, shapeLabels } from "@/lib/cad/parametric";
+import {
+  BLANK_DIM_MAX,
+  BLANK_DIM_MIN,
+  PARAM_LIMITS,
+  clampNumber,
+  clampParametricParams,
+} from "@/lib/cad/param-limits";
 import { MATERIALS } from "@/lib/materials";
 import { setGeometry, useProject } from "@/lib/project-store";
-import type { BlankShape, MaterialGrade, PatternKind } from "@/types/domain";
+import type { BlankShape, MaterialGrade, PatternKind, ParametricParams } from "@/types/domain";
+import { useEffect, useState } from "react";
 
 const patterns: { id: PatternKind; title: string; hint: string }[] = [
   {
@@ -37,19 +45,79 @@ const shapes: { id: BlankShape; hint: string }[] = [
   { id: "diamond", hint: "Ромб" },
 ];
 
+function digitsOnly(raw: string, maxLen: number) {
+  return raw.replace(/[^\d]/g, "").slice(0, maxLen);
+}
+
+function thicknessDraft(raw: string) {
+  const normalized = raw.replace(",", ".").replace(/[^\d.]/g, "");
+  const parts = normalized.split(".");
+  const intPart = (parts[0] ?? "").slice(0, 3);
+  const fracPart = (parts[1] ?? "").slice(0, 1);
+  if (parts.length > 1) return `${intPart}.${fracPart}`;
+  return intPart;
+}
+
 export function ParametricPanel() {
   const project = useProject();
-  const params = { ...defaultParams, ...project.params };
+  const params = clampParametricParams({
+    ...defaultParams,
+    ...project.params,
+  });
 
-  function update<K extends keyof typeof params>(key: K, value: (typeof params)[K]) {
-    const next = { ...params, [key]: value };
+  const [widthDraft, setWidthDraft] = useState(String(params.widthMm));
+  const [heightDraft, setHeightDraft] = useState(String(params.heightMm));
+  const [thicknessDraftValue, setThicknessDraftValue] = useState(
+    String(params.thicknessMm),
+  );
+
+  useEffect(() => {
+    setWidthDraft(String(params.widthMm));
+    setHeightDraft(String(params.heightMm));
+    setThicknessDraftValue(String(params.thicknessMm));
+  }, [params.widthMm, params.heightMm, params.thicknessMm]);
+
+  function commit(nextRaw: ParametricParams) {
+    const next = clampParametricParams(nextRaw);
     const built = buildParametricProject(next);
     setGeometry({
       source: "parametric",
-      params: next,
+      params: built.params ?? next,
       parts: built.parts,
       groups: built.groups,
     });
+  }
+
+  function update<K extends keyof ParametricParams>(
+    key: K,
+    value: ParametricParams[K],
+  ) {
+    commit({ ...params, [key]: value });
+  }
+
+  function commitDim(key: "widthMm" | "heightMm", draft: string) {
+    const n = Number(draft);
+    const fallback = params[key];
+    const value = Number.isFinite(n)
+      ? clampNumber(n, BLANK_DIM_MIN, BLANK_DIM_MAX, fallback)
+      : fallback;
+    if (key === "widthMm") setWidthDraft(String(value));
+    else setHeightDraft(String(value));
+    update(key, value);
+  }
+
+  function commitThickness(draft: string) {
+    const n = Number(draft.replace(",", "."));
+    const value = Number.isFinite(n)
+      ? clampNumber(
+          n,
+          PARAM_LIMITS.thicknessMm.min,
+          PARAM_LIMITS.thicknessMm.max,
+          params.thicknessMm,
+        )
+      : params.thicknessMm;
+    setThicknessDraftValue(String(value));
+    update("thicknessMm", value);
   }
 
   return (
@@ -107,8 +175,8 @@ export function ParametricPanel() {
           Количество деталей
           <input
             type="range"
-            min={2}
-            max={36}
+            min={PARAM_LIMITS.quantity.min}
+            max={PARAM_LIMITS.quantity.max}
             value={params.quantity}
             onChange={(e) => update("quantity", Number(e.target.value))}
           />
@@ -120,40 +188,83 @@ export function ParametricPanel() {
             <label>
               Ширина, мм
               <input
-                type="number"
-                min={120}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
                 autoComplete="off"
-                value={params.widthMm}
-                onChange={(e) => update("widthMm", Number(e.target.value))}
+                value={widthDraft}
+                onChange={(e) => setWidthDraft(digitsOnly(e.target.value, 4))}
+                onBlur={() => commitDim("widthMm", widthDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
               />
             </label>
             <label>
               Высота, мм
               <input
-                type="number"
-                min={120}
-                value={params.heightMm}
-                onChange={(e) => update("heightMm", Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                autoComplete="off"
+                value={heightDraft}
+                onChange={(e) => setHeightDraft(digitsOnly(e.target.value, 4))}
+                onBlur={() => commitDim("heightMm", heightDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
               />
             </label>
           </div>
+          <p className="muted tiny">
+            Ширина и высота — от {BLANK_DIM_MIN} до {BLANK_DIM_MAX} мм (не больше 4
+            цифр). Значение применится при выходе из поля.
+          </p>
           <div className="two">
             <label>
               Шаг узора, мм
               <input
                 type="number"
-                min={24}
+                min={PARAM_LIMITS.pitchMm.min}
+                max={PARAM_LIMITS.pitchMm.max}
                 value={params.pitchMm}
-                onChange={(e) => update("pitchMm", Number(e.target.value))}
+                onChange={(e) =>
+                  update(
+                    "pitchMm",
+                    clampNumber(
+                      Number(e.target.value),
+                      PARAM_LIMITS.pitchMm.min,
+                      PARAM_LIMITS.pitchMm.max,
+                      params.pitchMm,
+                    ),
+                  )
+                }
               />
             </label>
             <label>
               Размер мотива, мм
               <input
                 type="number"
-                min={8}
+                min={PARAM_LIMITS.motifSizeMm.min}
+                max={PARAM_LIMITS.motifSizeMm.max}
                 value={params.motifSizeMm}
-                onChange={(e) => update("motifSizeMm", Number(e.target.value))}
+                onChange={(e) =>
+                  update(
+                    "motifSizeMm",
+                    clampNumber(
+                      Number(e.target.value),
+                      PARAM_LIMITS.motifSizeMm.min,
+                      PARAM_LIMITS.motifSizeMm.max,
+                      params.motifSizeMm,
+                    ),
+                  )
+                }
               />
             </label>
           </div>
@@ -163,13 +274,23 @@ export function ParametricPanel() {
       <label>
         Толщина, мм
         <input
-          type="number"
-          min={0.8}
-          step={0.1}
-          value={params.thicknessMm}
-          onChange={(e) => update("thicknessMm", Number(e.target.value))}
+          type="text"
+          inputMode="decimal"
+          maxLength={5}
+          autoComplete="off"
+          value={thicknessDraftValue}
+          onChange={(e) => setThicknessDraftValue(thicknessDraft(e.target.value))}
+          onBlur={() => commitThickness(thicknessDraftValue)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
         />
       </label>
+      <p className="muted tiny">
+        Толщина — до 3 цифр (макс. {PARAM_LIMITS.thicknessMm.max} мм).
+      </p>
     </div>
   );
 }

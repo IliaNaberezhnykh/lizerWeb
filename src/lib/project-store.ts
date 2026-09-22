@@ -2,6 +2,7 @@
 
 import { groupParts, makePart } from "@/lib/cad/geometry";
 import { nestGroups } from "@/lib/cad/nesting";
+import { BLANK_DIM_MAX, BLANK_DIM_MIN, clampNumber } from "@/lib/cad/param-limits";
 import { buildParametricProject, defaultParams } from "@/lib/cad/parametric";
 import type {
   CheckoutInfo,
@@ -34,8 +35,8 @@ function nestingFor(
   // Файл: лист = габарит детали.
   if (source === "parametric") {
     return nestGroups(groups, {
-      width: params.widthMm,
-      height: params.heightMm,
+      width: clampNumber(params.widthMm, BLANK_DIM_MIN, BLANK_DIM_MAX, 800),
+      height: clampNumber(params.heightMm, BLANK_DIM_MIN, BLANK_DIM_MAX, 600),
     });
   }
   return nestGroups(groups);
