@@ -8,7 +8,7 @@ import {
   Float32BufferAttribute,
   Shape,
   Path,
-  DoubleSide,
+  FrontSide,
   MeshStandardMaterial,
   Color,
 } from "three";
@@ -63,10 +63,14 @@ export function geometryFromPart(part: OutlinePart) {
 export function partMaterial(index: number, _selected = false) {
   return new MeshStandardMaterial({
     color: new Color(palette[index % palette.length]),
-    metalness: 0.62,
-    roughness: 0.28,
-    side: DoubleSide,
-    envMapIntensity: 1,
+    metalness: 0.55,
+    roughness: 0.35,
+    side: FrontSide,
+    flatShading: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+    envMapIntensity: 0.85,
   });
 }
 

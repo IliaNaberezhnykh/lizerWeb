@@ -28,6 +28,9 @@ export interface CompositionLine {
   partLengthMm?: number;
   partHeightMm?: number;
   thicknessMm: number;
+  /** Масса в кг для ед. изм. 1С */
+  quantityKg?: number;
+  quantityM2?: number;
   price?: number;
   amount?: number;
 }
@@ -57,6 +60,7 @@ export interface OutlinePart {
   thicknessMm: number;
   bbox: { w: number; h: number; d: number };
   areaMm2: number;
+  netAreaMm2?: number;
   cutLengthMm: number;
   mesh?: {
     positions: number[];

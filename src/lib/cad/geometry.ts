@@ -164,15 +164,18 @@ export function measurePart(
   holes: Polyline2D[],
   thicknessMm: number,
 ) {
-  const area =
-    shoelaceArea(outline.points) -
-    holes.reduce((sum, hole) => sum + shoelaceArea(hole.points), 0);
+  const blankArea = shoelaceArea(outline.points);
+  const holesArea = holes.reduce((sum, hole) => sum + shoelaceArea(hole.points), 0);
+  const netArea = blankArea - holesArea;
   const cutLength =
     polylineLength(outline) +
     holes.reduce((sum, hole) => sum + polylineLength(hole), 0);
   const box = boundsOf(outline.points);
   return {
-    areaMm2: Math.max(area, 0),
+    /** Площадь заготовки по контуру (для металла / 1С). */
+    areaMm2: Math.max(blankArea, 0),
+    /** Площадь после вычета отверстий. */
+    netAreaMm2: Math.max(netArea, 0),
     cutLengthMm: cutLength,
     bbox: { w: box.w, h: box.h, d: thicknessMm },
   };

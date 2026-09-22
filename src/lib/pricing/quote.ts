@@ -1,4 +1,5 @@
 import { MATERIALS } from "@/lib/materials";
+import { sheetMassKg } from "@/lib/metal/calculator";
 import { findMaterial } from "@/lib/onec/catalog";
 import type {
   CompositionLine,
@@ -39,6 +40,17 @@ export function buildComposition(input: {
         group.sample.bbox.h
       ).toFixed(1),
     );
+    const thicknessMm =
+      input.params.thicknessMm || group.sample.thicknessMm;
+    // Площадь заготовки (контур), не «нетто» после отверстий.
+    const areaMm2 = group.sample.areaMm2 * group.quantity;
+    const quantityM2 = Number((areaMm2 / 1_000_000).toFixed(4));
+    const quantityKg = sheetMassKg({
+      areaMm2: group.sample.areaMm2,
+      thicknessMm,
+      material: input.params.material,
+    }) * group.quantity;
+
     return {
       key: group.key,
       name: group.name,
@@ -46,15 +58,16 @@ export function buildComposition(input: {
       materialLabel,
       materialCode: material.code,
       materialName: material.name,
-      quantity: Number(
-        ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
-      ),
+      // quantity в запросе к 1С — кг (ед. изм. листа в ERP).
+      quantity: Number(quantityKg.toFixed(3)),
+      quantityKg: Number(quantityKg.toFixed(3)),
+      quantityM2,
       partQuantity: group.quantity,
       lengthMm,
       heightMm,
       partLengthMm: lengthMm,
       partHeightMm: heightMm,
-      thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,
+      thicknessMm,
     };
   });
 }
@@ -95,10 +108,10 @@ export function buildQuote(input: {
     key: part.key,
     nomenclatureCode: part.materialCode,
     nomenclatureName: part.materialName,
-    unit: material.unit,
-    quantity: part.quantity,
+    unit: "кг",
+    quantity: part.quantityKg ?? part.quantity,
     price: material.price,
-    amount: Math.round(material.price * part.quantity),
+    amount: Math.round(material.price * (part.quantityKg ?? part.quantity)),
     kind: "material",
     oneCKind: "nomenclature",
   }));

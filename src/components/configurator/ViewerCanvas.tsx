@@ -163,7 +163,7 @@ function PartsScene({
   }
 
   return (
-    <group ref={rootRef} position={rootOffset}>
+    <group ref={rootRef} position={[rootOffset.x, rootOffset.y + 1, rootOffset.z]}>
       {geos.map((geo, index) => {
         const center = centers[index];
         const offset = center
@@ -280,7 +280,7 @@ export function ViewerCanvas() {
         sectionSize={250}
         sectionThickness={1.4}
         cellThickness={1}
-        position={[0, -2, 0]}
+        position={[0, -24, 0]}
       />
       <OrbitControls
         ref={controlsRef}
