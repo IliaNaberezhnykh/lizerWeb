@@ -4,8 +4,7 @@ import { NestingPreview } from "@/components/configurator/NestingPreview";
 import { ParametricPanel } from "@/components/configurator/ParametricPanel";
 import { PartsTable } from "@/components/configurator/PartsTable";
 import { Uploader } from "@/components/configurator/Uploader";
-import { STOCK_SHEET } from "@/lib/cad/nesting";
-import { formatMoney } from "@/lib/format";
+import { formatMm, formatMoney } from "@/lib/format";
 import { needsMaterialSpecs, setProject, setQuote, useProject } from "@/lib/project-store";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -111,7 +110,10 @@ export function ConfiguratorStudio() {
 
         <div className="block">
           <h3>
-            Раскрой на лист {STOCK_SHEET.width}×{STOCK_SHEET.height}
+            Раскрой на лист{" "}
+            {project.nesting[0]
+              ? `${formatMm(project.nesting[0].width)}×${formatMm(project.nesting[0].height)}`
+              : "—"}
           </h3>
           <NestingPreview />
         </div>

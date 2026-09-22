@@ -24,7 +24,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const quote = body.quote ?? (await oneCClient.postQuote(body));
+    const quote =
+      body.quote ??
+      (await oneCClient.postQuote({
+        groups: body.groups,
+        nesting: body.nesting ?? [],
+        params: body.params,
+      }));
     const documents = await oneCClient.postDocuments({
       ...body,
       quote,

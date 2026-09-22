@@ -25,12 +25,28 @@ const emptyCheckout: CheckoutInfo = {
 
 const initialGeometry = buildParametricProject(defaultParams);
 
+function nestingFor(
+  groups: ProjectSnapshot["groups"],
+  params: ParametricParams,
+  source: ProjectSnapshot["source"],
+) {
+  // Параметрика: лист раскроя = ширина/высота из формы.
+  // Файл: лист = габарит детали.
+  if (source === "parametric") {
+    return nestGroups(groups, {
+      width: params.widthMm,
+      height: params.heightMm,
+    });
+  }
+  return nestGroups(groups);
+}
+
 let state: ProjectSnapshot = {
   source: "parametric",
   params: defaultParams,
   parts: initialGeometry.parts,
   groups: initialGeometry.groups,
-  nesting: nestGroups(initialGeometry.groups),
+  nesting: nestingFor(initialGeometry.groups, defaultParams, "parametric"),
   explode: 0.35,
   specsConfirmed: true,
   checkout: emptyCheckout,
@@ -43,10 +59,21 @@ function emit() {
 }
 
 export function setProject(next: Partial<ProjectSnapshot>) {
-  state = { ...state, ...next };
-  if (next.groups) {
-    state = { ...state, nesting: nestGroups(next.groups) };
-  }
+  const groups = next.groups ?? state.groups;
+  const params = next.params ?? state.params;
+  const source = next.source ?? state.source;
+  const shouldRenest =
+    next.groups !== undefined ||
+    next.params !== undefined ||
+    next.source !== undefined;
+
+  state = {
+    ...state,
+    ...next,
+    nesting: shouldRenest
+      ? nestingFor(groups, params, source)
+      : (next.nesting ?? state.nesting),
+  };
   emit();
 }
 

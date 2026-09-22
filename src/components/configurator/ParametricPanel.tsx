@@ -39,7 +39,7 @@ const shapes: { id: BlankShape; hint: string }[] = [
 
 export function ParametricPanel() {
   const project = useProject();
-  const params = { shape: "rectangle" as const, ...defaultParams, ...project.params };
+  const params = { ...defaultParams, ...project.params };
 
   function update<K extends keyof typeof params>(key: K, value: (typeof params)[K]) {
     const next = { ...params, [key]: value };

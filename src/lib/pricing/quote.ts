@@ -1,4 +1,3 @@
-import { STOCK_SHEET } from "@/lib/cad/nesting";
 import { MATERIALS } from "@/lib/materials";
 import { findMaterial } from "@/lib/onec/catalog";
 import type {
@@ -21,48 +20,62 @@ export function buildComposition(input: {
   const materialLabel =
     MATERIALS.find((item) => item.id === input.params.material)?.label ??
     input.params.material;
-  // В 1С длина/ширина — габариты листа раскроя (характеристика 1500×6000), не детали.
-  const sheet = input.nesting?.[0] ?? {
-    width: STOCK_SHEET.width,
-    height: STOCK_SHEET.height,
-  };
-  return input.groups.map((group) => ({
-    key: group.key,
-    name: group.name,
-    material: input.params.material,
-    materialLabel,
-    materialCode: material.code,
-    materialName: material.name,
-    quantity: Number(
-      ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
-    ),
-    partQuantity: group.quantity,
-    lengthMm: Number(sheet.width.toFixed(1)),
-    heightMm: Number(sheet.height.toFixed(1)),
-    partLengthMm: Number(
-      (group.sample.bbox.w || input.params.widthMm).toFixed(1),
-    ),
-    partHeightMm: Number(
-      (group.sample.bbox.h || input.params.heightMm).toFixed(1),
-    ),
-    thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,
-  }));
+  return input.groups.map((group) => {
+    // В 1С уходят размеры листа раскроя = заготовки (из nesting / формы).
+    const sheet = input.nesting?.find((item) =>
+      item.placements.some((p) => p.groupKey === group.key),
+    );
+    const lengthMm = Number(
+      (
+        sheet?.width ??
+        input.params.widthMm ??
+        group.sample.bbox.w
+      ).toFixed(1),
+    );
+    const heightMm = Number(
+      (
+        sheet?.height ??
+        input.params.heightMm ??
+        group.sample.bbox.h
+      ).toFixed(1),
+    );
+    return {
+      key: group.key,
+      name: group.name,
+      material: input.params.material,
+      materialLabel,
+      materialCode: material.code,
+      materialName: material.name,
+      quantity: Number(
+        ((group.sample.areaMm2 * group.quantity) / 1_000_000).toFixed(3),
+      ),
+      partQuantity: group.quantity,
+      lengthMm,
+      heightMm,
+      partLengthMm: lengthMm,
+      partHeightMm: heightMm,
+      thicknessMm: input.params.thicknessMm || group.sample.thicknessMm,
+    };
+  });
 }
 
 export function nestStats(input: {
   groups: PartGroup[];
   nesting: NestingSheet[];
 }) {
-  const sheetAreaM2 = (STOCK_SHEET.width * STOCK_SHEET.height) / 1_000_000;
+  const sheetAreaM2 = input.nesting.reduce(
+    (sum, sheet) => sum + (sheet.width * sheet.height) / 1_000_000,
+    0,
+  );
   const usedAreaM2 = input.groups.reduce(
     (sum, group) => sum + (group.sample.areaMm2 * group.quantity) / 1_000_000,
     0,
   );
   const sheetCount = Math.max(1, input.nesting.length);
   const wastePercent =
-    sheetCount * sheetAreaM2 === 0
+    sheetAreaM2 === 0
       ? 0
-      : Math.max(0, 1 - usedAreaM2 / (sheetCount * sheetAreaM2)) * 100;
+      : Math.max(0, 1 - usedAreaM2 / sheetAreaM2) * 100;
   return {
     sheetCount,
     wastePercent: Number(wastePercent.toFixed(1)),

@@ -5,11 +5,16 @@ import { useProject } from "@/lib/project-store";
 const colors = ["#8f9a63", "#c4cc9c", "#9aa78a", "#6f7a48", "#b7c0a8"];
 
 export function NestingPreview() {
-  const { nesting } = useProject();
+  const { nesting, params, source } = useProject();
   if (!nesting.length) return null;
 
   return (
     <div className="nesting">
+      <p className="muted tiny" style={{ marginBottom: 8 }}>
+        {source === "parametric"
+          ? `Лист = заготовка ${params.widthMm}×${params.heightMm} мм (как в полях ширины и высоты).`
+          : "Лист = габарит детали из файла."}
+      </p>
       {nesting.map((sheet) => {
         const scale = Math.min(280 / sheet.width, 160 / sheet.height);
         return (
@@ -36,7 +41,7 @@ export function NestingPreview() {
                   fill={colors[i % colors.length]}
                   fillOpacity={0.78}
                   stroke="#0b0c0f"
-                  strokeWidth={4}
+                  strokeWidth={Math.max(1, Math.min(sheet.width, sheet.height) * 0.008)}
                 />
               ))}
             </svg>
